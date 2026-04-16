@@ -8,12 +8,10 @@ let cards = [];
 
 const CARD_WIDTH_IN = 2.5;
 const CARD_HEIGHT_IN = 3.5;
-const EXPORT_DPI = 600;
+const EXPORT_DPI = 300;
 const POINTS_PER_INCH = 72;
 const PAGE_WIDTH_PT = CARD_WIDTH_IN * POINTS_PER_INCH;
 const PAGE_HEIGHT_PT = CARD_HEIGHT_IN * POINTS_PER_INCH;
-const PAGE_WIDTH_PX = Math.round(CARD_WIDTH_IN * EXPORT_DPI);
-const PAGE_HEIGHT_PX = Math.round(CARD_HEIGHT_IN * EXPORT_DPI);
 
 imageInput.addEventListener('change', async (event) => {
   const files = Array.from(event.target.files || []);
@@ -70,7 +68,7 @@ exportBtn.addEventListener('click', async () => {
     if (i > 0) pdf.addPage([PAGE_WIDTH_PT, PAGE_HEIGHT_PT], 'portrait');
 
     const pageCard = pages[i];
-    const canvas = await buildCardCanvas(pageCard.src, pageCard.rotation);
+    const canvas = await renderCardToCanvas(pageCard, EXPORT_DPI);
 
     const imageData = canvas.toDataURL('image/png');
     pdf.addImage(imageData, 'PNG', 0, 0, PAGE_WIDTH_PT, PAGE_HEIGHT_PT, undefined, 'NONE');
@@ -179,11 +177,11 @@ function renderCards() {
   });
 }
 
-async function buildCardCanvas(imageSrc, rotationDegrees) {
-  const img = await loadImage(imageSrc);
+async function renderCardToCanvas(card, dpi = EXPORT_DPI) {
+  const img = await loadImage(card.src);
   const canvas = document.createElement('canvas');
-  const width = PAGE_WIDTH_PX;
-  const height = PAGE_HEIGHT_PX;
+  const width = Math.round(CARD_WIDTH_IN * dpi);
+  const height = Math.round(CARD_HEIGHT_IN * dpi);
   canvas.width = width;
   canvas.height = height;
 
@@ -195,19 +193,20 @@ async function buildCardCanvas(imageSrc, rotationDegrees) {
 
   ctx.save();
   ctx.translate(width / 2, height / 2);
-  const radians = (rotationDegrees * Math.PI) / 180;
+  const radians = ((card.rotation || 0) * Math.PI) / 180;
   ctx.rotate(radians);
 
+  const sourceWidth = img.naturalWidth || img.width;
+  const sourceHeight = img.naturalHeight || img.height;
   const absCos = Math.abs(Math.cos(radians));
   const absSin = Math.abs(Math.sin(radians));
-  const rotatedWidth = img.width * absCos + img.height * absSin;
-  const rotatedHeight = img.width * absSin + img.height * absCos;
+  const rotatedBoundsWidth = sourceWidth * absCos + sourceHeight * absSin;
+  const rotatedBoundsHeight = sourceWidth * absSin + sourceHeight * absCos;
 
-  // Fit the rotated image inside the card bounds so landscape images rotated
-  // into portrait orientation are not oversized or clipped.
-  const scale = Math.min(width / rotatedWidth, height / rotatedHeight);
-  const drawWidth = img.width * scale;
-  const drawHeight = img.height * scale;
+  // Cover-fit the rotated source so each page is fully filled at export size.
+  const scale = Math.max(width / rotatedBoundsWidth, height / rotatedBoundsHeight);
+  const drawWidth = sourceWidth * scale;
+  const drawHeight = sourceHeight * scale;
 
   ctx.drawImage(img, -drawWidth / 2, -drawHeight / 2, drawWidth, drawHeight);
   ctx.restore();
