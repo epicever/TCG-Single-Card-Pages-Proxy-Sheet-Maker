@@ -8,12 +8,9 @@ let cards = [];
 
 const CARD_WIDTH_IN = 2.5;
 const CARD_HEIGHT_IN = 3.5;
-const EXPORT_DPI = 300;
 const POINTS_PER_INCH = 72;
 const PAGE_WIDTH_PT = CARD_WIDTH_IN * POINTS_PER_INCH;
 const PAGE_HEIGHT_PT = CARD_HEIGHT_IN * POINTS_PER_INCH;
-const PAGE_WIDTH_PX = Math.round(CARD_WIDTH_IN * EXPORT_DPI);
-const PAGE_HEIGHT_PX = Math.round(CARD_HEIGHT_IN * EXPORT_DPI);
 
 imageInput.addEventListener('change', async (event) => {
   const files = Array.from(event.target.files || []);
@@ -57,7 +54,7 @@ exportBtn.addEventListener('click', async () => {
     return;
   }
 
-  setStatus(`Building ${EXPORT_DPI} DPI PDF with ${pages.length} page(s)...`);
+  setStatus(`Building PDF with ${pages.length} page(s)...`);
 
   const pdf = new jsPDF({
     orientation: 'portrait',
@@ -76,7 +73,7 @@ exportBtn.addEventListener('click', async () => {
   }
 
   pdf.save('cards.pdf');
-  setStatus(`Export complete: ${pages.length} page(s) in cards.pdf at ${EXPORT_DPI} DPI.`);
+  setStatus(`Export complete: ${pages.length} page(s) in cards.pdf.`);
 });
 
 function renderCards() {
@@ -181,8 +178,8 @@ function renderCards() {
 async function buildCardCanvas(imageSrc, rotationDegrees) {
   const img = await loadImage(imageSrc);
   const canvas = document.createElement('canvas');
-  const width = PAGE_WIDTH_PX;
-  const height = PAGE_HEIGHT_PX;
+  const width = Math.round(PAGE_WIDTH_PT);
+  const height = Math.round(PAGE_HEIGHT_PT);
   canvas.width = width;
   canvas.height = height;
 
@@ -192,17 +189,9 @@ async function buildCardCanvas(imageSrc, rotationDegrees) {
 
   ctx.save();
   ctx.translate(width / 2, height / 2);
-  const radians = (rotationDegrees * Math.PI) / 180;
-  ctx.rotate(radians);
+  ctx.rotate((rotationDegrees * Math.PI) / 180);
 
-  const absCos = Math.abs(Math.cos(radians));
-  const absSin = Math.abs(Math.sin(radians));
-  const rotatedWidth = img.width * absCos + img.height * absSin;
-  const rotatedHeight = img.width * absSin + img.height * absCos;
-
-  // Fit the rotated image inside the card bounds so landscape images rotated
-  // into portrait orientation are not oversized or clipped.
-  const scale = Math.min(width / rotatedWidth, height / rotatedHeight);
+  const scale = Math.max(width / img.width, height / img.height);
   const drawWidth = img.width * scale;
   const drawHeight = img.height * scale;
 
